@@ -1,0 +1,982 @@
+<!doctype html>
+<html>
+<head>
+  <script>
+    try { window.localStorage.getItem('x') } catch (e) {
+      const store = new Map()
+      const shim = { getItem:(k)=>store.has(k)?store.get(k):null, setItem:(k,v)=>store.set(k,String(v)), removeItem:(k)=>store.delete(k), clear:()=>store.clear(), key:(i)=>Array.from(store.keys())[i]??null, get length(){return store.size} }
+      Object.defineProperty(window,'localStorage',{value:shim,configurable:true})
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#000;--bg-card:#1c1c1e;--bg-el:#2c2c2e;--bg-in:#3a3a3c;
+      --acc:#0a84ff;--acc-dim:rgba(10,132,255,.14);
+      --text:#fff;--ts:#8e8e93;--tt:#636366;
+      --border:#38383a;--ok:#30d158;--err:#ff453a;--warn:#ffd60a;
+      --sep:rgba(255,255,255,.07);
+      --r-sm:10px;--r-md:13px;--r-lg:16px;
+      --caps:#5e9eff;--lower:#4cd877;--num:#ffd566;--sym:#ff9a66;
+      --font-clr:#bf8bff;--font-bg:#2a1e3f;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{background:var(--bg);color:var(--text);font-family:'Poppins',-apple-system,sans-serif;font-size:13px;-webkit-font-smoothing:antialiased;height:auto;min-height:0}
+    #root{display:flex;flex-direction:column}
+    .hdr{padding:13px 12px 7px;display:flex;align-items:center;gap:8px}
+    .logo{width:23px;height:23px;background:var(--acc);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;flex-shrink:0}
+    .hdr-t .title{font-size:14px;font-weight:600;letter-spacing:-.3px}
+    .hdr-t .sub{font-size:9px;color:var(--ts);font-weight:300}
+
+    .source-zone{margin:0 10px 6px;border-radius:var(--r-lg);overflow:hidden;border:1.5px solid var(--border);background:var(--bg-card);position:relative;cursor:pointer;transition:border-color .15s}
+    .source-zone:hover{border-color:var(--acc)}
+    .source-zone.has-source{border-style:solid;border-color:var(--border);cursor:default}
+    .source-zone.drag{border-color:var(--acc);background:var(--acc-dim)}
+    .source-empty{height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+    .source-empty .ico{font-size:18px;opacity:.3}
+    .source-empty .lbl{font-size:11px;font-weight:500;color:var(--ts)}
+    .source-empty .hint{font-size:9px;color:var(--tt)}
+    .source-preview{display:none;padding:6px}
+    .source-zone.has-source .source-empty{display:none}
+    .source-zone.has-source .source-preview{display:flex;align-items:center;gap:10px}
+    #prev-img{width:72px;height:56px;object-fit:contain;border-radius:6px;background:rgba(255,255,255,.06);flex-shrink:0}
+    .source-meta{flex:1;min-width:0}
+    .source-name{font-size:11px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .source-dims{font-size:9px;color:var(--tt);margin-top:1px}
+    .source-badge{font-size:9px;padding:1px 7px;border-radius:20px;margin-top:3px;display:inline-block}
+    .source-badge.canvas{background:rgba(10,132,255,.2);color:var(--acc)}
+    .source-badge.upload{background:rgba(76,216,119,.2);color:var(--lower)}
+    .source-actions{display:flex;gap:4px}
+    .src-btn{padding:2px 8px;border-radius:20px;font:9px/1.5 'Poppins',sans-serif;border:1px solid var(--border);background:transparent;color:var(--ts);cursor:pointer;transition:all .1s}
+    .src-btn:hover{border-color:var(--acc);color:var(--acc)}
+    #file-inp{display:none}
+
+    .canvas-banner{margin:0 10px 5px;background:var(--acc-dim);border-radius:var(--r-md);border:1px solid rgba(10,132,255,.25);padding:6px 11px;display:none;align-items:center;gap:7px}
+    .canvas-banner.show{display:flex}
+    .cb-dot{width:5px;height:5px;border-radius:50%;background:var(--acc);flex-shrink:0}
+    .cb-text{font-size:10px;color:var(--acc)}
+    .cb-use{margin-left:auto;padding:2px 9px;border-radius:20px;background:var(--acc);border:none;color:#fff;font:9px/1.5 'Poppins',sans-serif;cursor:pointer}
+
+    .sec-lbl{font-size:9px;font-weight:500;color:var(--tt);letter-spacing:.9px;padding:8px 12px 2px}
+    .card{margin:0 10px 5px;background:var(--bg-card);border-radius:var(--r-lg);overflow:hidden}
+    .ctrl{display:flex;align-items:center;padding:8px 12px;gap:8px;border-bottom:1px solid var(--sep)}
+    .ctrl:last-child{border-bottom:none}
+    .ctrl-lbl{font-size:11px;color:var(--ts);flex-shrink:0;min-width:72px}
+    .ctrl-r{display:flex;align-items:center;gap:6px;flex:1;justify-content:flex-end}
+    .sl-wrap{flex:1;display:flex;align-items:center;gap:6px}
+    input[type=range]{-webkit-appearance:none;flex:1;height:2px;background:var(--bg-in);border-radius:2px;outline:none;cursor:pointer}
+    input[type=range]:disabled{opacity:.3;cursor:default}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:#fff;border-radius:50%;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+    .sl-v{font-size:11px;color:var(--text);font-weight:500;min-width:36px;text-align:right}
+    .sl-v.computed{color:var(--acc)}
+    .tog{width:32px;height:19px;border-radius:10px;background:var(--bg-in);position:relative;transition:background .2s;cursor:pointer;flex-shrink:0}
+    .tog.on{background:var(--acc)}
+    .tog::after{content:'';position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+    .tog.on::after{transform:translateX(13px)}
+    .tog-lbl{font-size:10px;color:var(--ts)}
+    .swatch{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);cursor:pointer;flex-shrink:0}
+    #color-inp{display:none}
+
+    .status-bar{margin:0 10px 5px;background:var(--bg-card);border-radius:var(--r-md);padding:7px 11px;display:none}
+    .status-bar.show{display:block}
+    .st-line{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--ts)}
+    .st-dot{width:5px;height:5px;border-radius:50%;background:var(--acc);flex-shrink:0;animation:pulse 1.2s infinite}
+    .st-dot.ok{background:var(--ok);animation:none}
+    .st-dot.err{background:var(--err);animation:none}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+    .prog{margin-top:5px;height:2px;background:var(--bg-in);border-radius:2px;overflow:hidden;display:none}
+    .prog.show{display:block}
+    .prog-fill{height:100%;background:var(--acc);border-radius:2px;transition:width .25s;width:0}
+    .det-stats{margin-top:4px;display:flex;gap:5px;flex-wrap:wrap}
+    .stat{background:var(--bg-el);border-radius:5px;padding:1px 6px;font-size:9px;color:var(--ts)}
+    .stat .v{color:var(--text);font-weight:500}
+
+    .footer{padding:7px 10px;display:flex;gap:6px}
+    .btn{flex:1;padding:10px 12px;border:none;outline:none;cursor:pointer;border-radius:var(--r-sm);font:12px/1 'Poppins',sans-serif;font-weight:500;transition:opacity .15s,transform .1s}
+    .btn:active:not(:disabled){transform:scale(.97)}
+    .btn-acc{background:var(--acc);color:#fff}
+    .btn-acc:disabled{opacity:.3;cursor:default;transform:none}
+    .btn-ghost{background:var(--bg-card);color:var(--ts);flex:0 0 auto}
+    .btn-green{background:#1b6e36;color:#4cd877}
+    .btn-green:disabled{opacity:.3;cursor:default;transform:none}
+    .btn-font{background:var(--font-bg);color:var(--font-clr);flex:0 0 auto;border:1px solid rgba(191,139,255,.2)}
+    .btn-font:disabled{opacity:.3;cursor:default;transform:none}
+    .font-name-input{flex:1;background:var(--bg-in);border:none;outline:none;color:var(--text);font:12px/1 'Poppins',sans-serif;border-radius:6px;padding:4px 8px;min-width:0}
+    .font-name-input::placeholder{color:var(--tt)}
+
+    #classify-section{display:none}
+    #classify-section.show{display:block}
+    .row-items{margin:0 10px 5px;display:flex;flex-direction:column;gap:4px}
+    .row-item{background:var(--bg-card);border-radius:var(--r-md);overflow:hidden;border:1.5px solid var(--border);transition:border-color .15s}
+    .row-item[data-type="caps"]  {border-color:rgba(94,158,255,.3)}
+    .row-item[data-type="lower"] {border-color:rgba(76,216,119,.3)}
+    .row-item[data-type="number"]{border-color:rgba(255,213,102,.3)}
+    .row-item[data-type="symbol"]{border-color:rgba(255,154,102,.3)}
+    .row-item[data-type="skip"]  {opacity:.4}
+    .row-preview{width:100%;height:30px;display:block;border-radius:var(--r-md) var(--r-md) 0 0;background:rgba(255,255,255,.03)}
+    .row-ctrls{display:flex;align-items:center;gap:5px;padding:5px 8px;border-top:1px solid var(--sep)}
+    .row-cnt{font-size:9px;color:var(--tt);flex-shrink:0;min-width:44px}
+    .row-ht{font-size:9px;color:var(--tt);flex-shrink:0}
+    .type-btns{display:flex;gap:2px;flex:1}
+    .type-btn{padding:2px 7px;border-radius:20px;font:9px/1.5 'Poppins',sans-serif;font-weight:500;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--tt);transition:all .1s;white-space:nowrap}
+    .type-btn[data-t="caps"].active  {background:var(--caps);border-color:var(--caps);color:#000}
+    .type-btn[data-t="lower"].active {background:var(--lower);border-color:var(--lower);color:#000}
+    .type-btn[data-t="number"].active{background:var(--num);border-color:var(--num);color:#000}
+    .type-btn[data-t="symbol"].active{background:var(--sym);border-color:var(--sym);color:#000}
+    .type-btn[data-t="skip"].active  {background:var(--bg-in);border-color:var(--bg-in);color:var(--ts)}
+
+    #phase2-footer{display:none}
+    #phase2-footer.show{display:flex}
+  </style>
+</head>
+<body>
+<div id="root">
+  <div class="hdr">
+    <div class="logo">Fa</div>
+    <div class="hdr-t"><div class="title">fontasy</div><div class="sub">handwritten glyph extractor</div></div>
+  </div>
+
+  <div class="canvas-banner" id="canvas-banner">
+    <div class="cb-dot"></div>
+    <span class="cb-text" id="cb-text">canvas layer selected</span>
+    <button class="cb-use" id="cb-use">use this layer</button>
+  </div>
+
+  <div class="source-zone" id="source-zone">
+    <div class="source-empty" id="source-empty">
+      <div class="ico">⬆</div>
+      <div class="lbl">select a canvas layer or drop an image</div>
+      <div class="hint">any image layer · png · jpg</div>
+    </div>
+    <div class="source-preview" id="source-preview">
+      <img id="prev-img" alt="">
+      <div class="source-meta">
+        <div class="source-name" id="source-name">—</div>
+        <div class="source-dims" id="source-dims"></div>
+        <span class="source-badge" id="source-badge">canvas</span>
+      </div>
+      <div class="source-actions">
+        <button class="src-btn" id="upload-btn">upload</button>
+        <button class="src-btn" id="canvas-btn">canvas</button>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="file-inp" accept="image/png,image/jpeg,image/webp">
+
+  <div class="sec-lbl">preprocessing</div>
+  <div class="card">
+    <div class="ctrl">
+      <span class="ctrl-lbl">threshold</span>
+      <div class="sl-wrap">
+        <input type="range" id="threshold" min="20" max="240" value="128" disabled>
+        <span class="sl-v computed" id="threshold-v">auto</span>
+      </div>
+    </div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">auto (otsu)</span>
+      <div class="ctrl-r"><div class="tog on" id="tog-otsu"></div></div>
+    </div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">blur</span>
+      <div class="sl-wrap">
+        <input type="range" id="blur" min="0" max="6" step="0.5" value="1.5">
+        <span class="sl-v" id="blur-v">1.5</span>
+      </div>
+    </div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">connect gaps</span>
+      <div class="sl-wrap">
+        <input type="range" id="dilate" min="0" max="6" step="1" value="1">
+        <span class="sl-v" id="dilate-v">1</span>
+      </div>
+    </div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">smoothing</span>
+      <div class="sl-wrap">
+        <input type="range" id="epsilon" min="0.5" max="6" step="0.5" value="2">
+        <span class="sl-v" id="epsilon-v">2</span>
+      </div>
+    </div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">invert</span>
+      <div class="ctrl-r">
+        <div class="tog" id="tog-invert"></div>
+        <span class="tog-lbl">white on dark</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-lbl">glyph size (% of image)</div>
+  <div class="card">
+    <div class="ctrl">
+      <span class="ctrl-lbl">minimum</span>
+      <div class="sl-wrap">
+        <input type="range" id="min-size" min="0.00001" max="0.05" step="0.0001" value="0.0003">
+        <span class="sl-v" id="min-size-v">0.03%</span>
+      </div>
+    </div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">maximum</span>
+      <div class="sl-wrap">
+        <input type="range" id="max-size" min="0.001" max="0.5" step="0.001" value="0.06">
+        <span class="sl-v" id="max-size-v">6%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-lbl">output</div>
+  <div class="card">
+    <div class="ctrl">
+      <span class="ctrl-lbl">padding</span>
+      <div class="sl-wrap">
+        <input type="range" id="padding" min="0" max="40" value="14">
+        <span class="sl-v" id="padding-v">14</span>
+      </div>
+    </div>
+    <div class="ctrl">
+      <span class="ctrl-lbl">ink color</span>
+      <div class="ctrl-r">
+        <div class="swatch" id="swatch" style="background:#1a1a2e"></div>
+        <input type="color" id="color-inp" value="#1a1a2e">
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar">
+    <div class="st-line"><div class="st-dot" id="st-dot"></div><span id="st-text">ready</span></div>
+    <div class="prog" id="prog"><div class="prog-fill" id="prog-fill"></div></div>
+    <div class="det-stats" id="det-stats"></div>
+  </div>
+
+  <div class="footer" id="phase1-footer">
+    <button class="btn btn-ghost" id="clear-btn">clear</button>
+    <button class="btn btn-acc" id="detect-btn" disabled>detect glyphs</button>
+  </div>
+
+  <div id="classify-section">
+    <div class="sec-lbl" style="padding-top:4px">rows — assign each type</div>
+    <div class="row-items" id="row-items"></div>
+    <div class="sec-lbl">font settings</div>
+    <div class="card">
+      <div class="ctrl">
+        <span class="ctrl-lbl">font name</span>
+        <input type="text" id="font-name" class="font-name-input" value="fontasy" placeholder="my font" maxlength="64">
+      </div>
+    </div>
+  </div>
+  <div class="footer" id="phase2-footer">
+    <button class="btn btn-ghost" id="back-btn">← back</button>
+    <button class="btn btn-font" id="font-btn" title="download .otf font file">export .otf</button>
+    <button class="btn btn-green" id="generate-btn">glyph sheet</button>
+  </div>
+</div>
+<script>
+// ── state ──
+let bitmap = null, binary = null
+let imgW = 0, imgH = 0, imgArea = 0
+let detectedRows = [], fileName = 'scan'
+let isWorking = false, useOtsu = true, useInvert = false
+let computedThreshold = 128
+let pendingCanvasImg = null
+let lastGlyphs = []   // [{label, vectorPath, bounds, sectionType}] — kept for font export
+
+const $$ = id => document.getElementById(id)
+
+// ── height reporting ──
+let lastH = 0, rafId = 0
+function rh() {
+  const h = Math.ceil($$('root').getBoundingClientRect().height)
+  if (h && h !== lastH) { lastH = h; parent.postMessage({ pluginMessage: { type: 'resize', height: h } }, '*') }
+}
+if (typeof ResizeObserver !== 'undefined') {
+  new ResizeObserver(() => { cancelAnimationFrame(rafId); rafId = requestAnimationFrame(rh) }).observe($$('root'))
+}
+
+$$('padding').addEventListener('input', () => $$('padding-v').textContent = $$('padding').value)
+$$('blur').addEventListener('input', () => $$('blur-v').textContent = $$('blur').value)
+$$('dilate').addEventListener('input', () => $$('dilate-v').textContent = $$('dilate').value)
+$$('epsilon').addEventListener('input', () => $$('epsilon-v').textContent = $$('epsilon').value)
+$$('threshold').addEventListener('input', () => { if (!useOtsu) $$('threshold-v').textContent = $$('threshold').value })
+$$('min-size').addEventListener('input', () => $$('min-size-v').textContent = (+$$('min-size').value * 100).toFixed(3) + '%')
+$$('max-size').addEventListener('input', () => $$('max-size-v').textContent = (+$$('max-size').value * 100).toFixed(1) + '%')
+
+$$('tog-otsu').addEventListener('click', () => {
+  useOtsu = !useOtsu
+  $$('tog-otsu').classList.toggle('on', useOtsu)
+  $$('threshold').disabled = useOtsu
+  $$('threshold-v').className = useOtsu ? 'sl-v computed' : 'sl-v'
+  $$('threshold-v').textContent = useOtsu ? (computedThreshold ? computedThreshold + ' auto' : 'auto') : $$('threshold').value
+})
+$$('tog-invert').addEventListener('click', () => { useInvert = !useInvert; $$('tog-invert').classList.toggle('on', useInvert) })
+
+$$('swatch').addEventListener('click', () => $$('color-inp').click())
+$$('color-inp').addEventListener('input', () => $$('swatch').style.background = $$('color-inp').value)
+
+$$('cb-use').addEventListener('click', () => {
+  if (pendingCanvasImg) { applySourceImage(pendingCanvasImg.bytes, pendingCanvasImg.name, pendingCanvasImg.width, pendingCanvasImg.height, 'canvas'); hideBanner() }
+})
+$$('canvas-btn').addEventListener('click', () => { parent.postMessage({ pluginMessage: { type: 'request-canvas-image' } }, '*') })
+$$('upload-btn').addEventListener('click', () => $$('file-inp').click())
+
+$$('source-zone').addEventListener('click', e => {
+  if (!$$('source-zone').classList.contains('has-source') && e.target.id !== 'upload-btn' && e.target.id !== 'canvas-btn') $$('file-inp').click()
+})
+$$('source-zone').addEventListener('dragover', e => { e.preventDefault(); $$('source-zone').classList.add('drag') })
+$$('source-zone').addEventListener('dragleave', () => $$('source-zone').classList.remove('drag'))
+$$('source-zone').addEventListener('drop', e => {
+  e.preventDefault(); $$('source-zone').classList.remove('drag')
+  const f = e.dataTransfer.files[0]
+  if (f && f.type.startsWith('image/')) loadFile(f)
+})
+$$('file-inp').addEventListener('change', e => { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = '' })
+
+async function loadFile(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  applySourceImage(bytes, file.name, 0, 0, 'upload')
+}
+
+async function applySourceImage(bytes, name, w, h, sourceType) {
+  fileName = name
+  const blob = new Blob([bytes], { type: 'image/png' })
+  const url = URL.createObjectURL(blob)
+  $$('prev-img').src = url
+  bitmap = await createImageBitmap(blob)
+  imgW = bitmap.width; imgH = bitmap.height; imgArea = imgW * imgH
+
+  const zone = $$('source-zone')
+  zone.classList.add('has-source')
+  $$('source-name').textContent = name
+  $$('source-dims').textContent = imgW + ' × ' + imgH + ' px'
+  const badge = $$('source-badge')
+  badge.className = 'source-badge ' + sourceType
+  badge.textContent = sourceType === 'canvas' ? 'from canvas' : 'uploaded'
+
+  $$('detect-btn').disabled = false
+  resetToPhase1(); hideStatus()
+}
+
+function showBanner(name) {
+  $$('canvas-banner').classList.add('show')
+  $$('cb-text').textContent = `"${name}" selected on canvas`
+}
+function hideBanner() { $$('canvas-banner').classList.remove('show') }
+
+window.addEventListener('message', async e => {
+  const msg = e.data && e.data.pluginMessage; if (!msg) return
+
+  if (msg.type === 'canvas-image') {
+    const bytes = new Uint8Array(msg.bytes)
+    pendingCanvasImg = { bytes, name: msg.name, width: msg.width, height: msg.height }
+    showBanner(msg.name)
+    await applySourceImage(bytes, msg.name, msg.width, msg.height, 'canvas')
+    hideBanner()
+    return
+  }
+
+  if (msg.type === 'done') {
+    setStatus('glyph sheet created ✓', 'ok'); setProgress(0); isWorking = false
+    $$('generate-btn').disabled = false; $$('generate-btn').textContent = 'generate glyph sheet'
+  }
+  if (msg.type === 'error') {
+    setStatus('error: ' + msg.message, 'err'); setProgress(0); isWorking = false; $$('generate-btn').disabled = false
+  }
+  if (msg.type === 'progress') setStatus('generating ' + msg.section + '...', 'loading')
+})
+
+$$('clear-btn').addEventListener('click', () => {
+  bitmap = null; binary = null; detectedRows = []
+  $$('source-zone').classList.remove('has-source')
+  $$('detect-btn').disabled = true
+  resetToPhase1(); hideStatus()
+})
+$$('back-btn').addEventListener('click', resetToPhase1)
+
+function resetToPhase1() {
+  $$('classify-section').classList.remove('show')
+  $$('phase2-footer').classList.remove('show')
+  $$('phase1-footer').style.display = 'flex'
+  $$('row-items').innerHTML = ''
+  isWorking = false
+  if (bitmap) { $$('detect-btn').disabled = false; $$('detect-btn').textContent = 'detect glyphs' }
+}
+
+function setStatus(txt, state, stats) {
+  $$('status-bar').classList.add('show')
+  $$('st-text').textContent = txt
+  $$('st-dot').className = 'st-dot' + (state === 'ok' ? ' ok' : state === 'err' ? ' err' : '')
+  const ds = $$('det-stats'); ds.innerHTML = ''
+  if (stats) for (const {l,v} of stats) {
+    const p = document.createElement('div'); p.className = 'stat'
+    p.innerHTML = l + ' <span class="v">' + v + '</span>'; ds.appendChild(p)
+  }
+}
+function setProgress(pct) {
+  const p = $$('prog')
+  if (pct > 0 && pct < 100) { p.classList.add('show'); $$('prog-fill').style.width = pct + '%' }
+  else p.classList.remove('show')
+}
+function hideStatus() { $$('status-bar').classList.remove('show') }
+
+function toGray(data, n) {
+  const g = new Float32Array(n)
+  for (let i = 0; i < n; i++) { const o = i*4; g[i] = 0.299*data[o] + 0.587*data[o+1] + 0.114*data[o+2] }
+  return g
+}
+
+function otsu(gray) {
+  const hist = new Float64Array(256)
+  for (const v of gray) hist[Math.min(255, Math.round(v))]++=1
+  const n = gray.length
+  let tm = 0
+  for (let i = 0; i < 256; i++) tm += i * hist[i] / n
+  let w0 = 0, m0 = 0, bv = 0, bt = 128
+  for (let t = 0; t < 256; t++) {
+    w0 += hist[t]/n; m0 += t*hist[t]/n
+    const w1 = 1 - w0
+    if (w0 < 1e-6 || w1 < 1e-6) continue
+    const mu0 = m0/w0, mu1 = (tm-m0)/w1
+    const v = w0*w1*(mu0-mu1)**2
+    if (v > bv) { bv = v; bt = t }
+  }
+  return bt
+}
+
+function gaussianBlur(gray, w, h, sigma) {
+  if (sigma <= 0) return gray
+  const kR = Math.max(1, Math.ceil(sigma*2.5)), kSize = kR*2+1
+  const k = new Float32Array(kSize)
+  let sum = 0
+  for (let i = 0; i < kSize; i++) { const x = i-kR; k[i] = Math.exp(-(x*x)/(2*sigma*sigma)); sum += k[i] }
+  for (let i = 0; i < kSize; i++) k[i] /= sum
+  const tmp = new Float32Array(w*h), out = new Float32Array(w*h)
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = 0; for (let i = 0; i < kSize; i++) v += gray[y*w + Math.max(0,Math.min(w-1,x+i-kR))]*k[i]; tmp[y*w+x] = v
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let v = 0; for (let i = 0; i < kSize; i++) v += tmp[Math.max(0,Math.min(h-1,y+i-kR))*w+x]*k[i]; out[y*w+x] = v
+  }
+  return out
+}
+
+function dilate(bin, w, h, r) {
+  if (r <= 0) return bin
+  const out = new Uint8Array(w*h), r2 = r*r
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (bin[y*w+x]) { out[y*w+x] = 1; continue }
+    let f = false
+    outer: for (let dy = -r; dy <= r && !f; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (dx*dx+dy*dy > r2) continue
+      const nx=x+dx, ny=y+dy
+      if (nx>=0&&ny>=0&&nx<w&&ny<h&&bin[ny*w+nx]) { f=true; break outer }
+    }
+    out[y*w+x] = f?1:0
+  }
+  return out
+}
+
+function labelComps(bin, w, h) {
+  const par = new Int32Array(w*h+1)
+  for (let i = 0; i < par.length; i++) par[i] = i
+  function find(x) { while (par[x]!==x){par[x]=par[par[x]];x=par[x]} return x }
+  function unite(a,b) { a=find(a);b=find(b); if (a!==b) par[b]=a; return a }
+  const lbl = new Int32Array(w*h); let nxt = 1
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const idx=y*w+x; if (!bin[idx]) continue
+    const top=y>0?find(lbl[(y-1)*w+x]):0, left=x>0?find(lbl[y*w+x-1]):0
+    if (!top&&!left) lbl[idx]=nxt++
+    else if (top&&!left) lbl[idx]=top
+    else if (!top&&left) lbl[idx]=left
+    else lbl[idx]=unite(top,left)
+  }
+  const map = new Map()
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const l=lbl[y*w+x]; if (!l) continue
+    const r=find(l); lbl[y*w+x]=r
+    if (!map.has(r)) map.set(r,{x1:x,y1:y,x2:x,y2:y,area:0})
+    const c=map.get(r)
+    if (x<c.x1)c.x1=x; if (y<c.y1)c.y1=y; if (x>c.x2)c.x2=x; if (y>c.y2)c.y2=y; c.area++
+  }
+  return Array.from(map.values()).map(c=>({x:c.x1,y:c.y1,w:c.x2-c.x1+1,h:c.y2-c.y1+1,area:c.area}))
+}
+
+function mergeFragments(comps) {
+  if (comps.length < 2) return comps
+  const sorted = [...comps].sort((a,b)=>b.area-a.area)
+  const medArea = sorted[Math.floor(sorted.length*0.4)].area
+  const fragThresh = medArea*0.18
+  const used = new Uint8Array(sorted.length); const out = []
+  for (let i = 0; i < sorted.length; i++) {
+    if (used[i]) continue; let c = {...sorted[i]}
+    for (let j = i+1; j < sorted.length; j++) {
+      if (used[j]||sorted[j].area>fragThresh) continue; const d = sorted[j]
+      const xG=Math.max(0,Math.max(d.x,c.x)-Math.min(d.x+d.w,c.x+c.w))
+      const yG=Math.max(0,Math.max(d.y,c.y)-Math.min(d.y+d.h,c.y+c.h))
+      if (xG<c.h*0.55&&yG<c.h*0.65) {
+        const nx1=Math.min(c.x,d.x),ny1=Math.min(c.y,d.y)
+        c={x:nx1,y:ny1,w:Math.max(c.x+c.w,d.x+d.w)-nx1,h:Math.max(c.y+c.h,d.y+d.h)-ny1,area:c.area+d.area}
+        used[j]=1
+      }
+    }
+    out.push(c); used[i]=1
+  }
+  return out
+}
+
+function groupRows(chars) {
+  if (!chars.length) return []
+  const sorted = [...chars].sort((a,b)=>(a.y+a.h*.5)-(b.y+b.h*.5))
+  const rows = [[sorted[0]]]
+  for (let i = 1; i < sorted.length; i++) {
+    const c=sorted[i], last=rows[rows.length-1]
+    const avgMid=last.reduce((s,r)=>s+r.y+r.h*.5,0)/last.length
+    const avgH=last.reduce((s,r)=>s+r.h,0)/last.length
+    if (Math.abs((c.y+c.h*.5)-avgMid)>avgH*0.55) rows.push([c])
+    else last.push(c)
+  }
+  return rows.map(r=>r.sort((a,b)=>a.x-b.x))
+}
+
+function autoClassify(rows) {
+  function med(a) { const s=[...a].sort((x,y)=>x-y); return s[Math.floor(s.length/2)] }
+  const rowMedH = rows.map(r=>med(r.map(c=>c.h)))
+  const allMedH = med(rowMedH)
+  if (rows.length===2&&rows[0].length>=24&&rows[1].length>=24) return ['caps','lower']
+  return rows.map((row,ri)=>{
+    const n=row.length,h=rowMedH[ri],ratio=h/allMedH
+    if (n<=4) return 'symbol'; if (n===10) return 'number'
+    if (ratio>1.1) return 'caps'; if (ratio<0.9) return 'lower'
+    return ri%2===0?'caps':'lower'
+  })
+}
+
+const MDX = [-1,0,1,1,1,0,-1,-1]
+const MDY = [-1,-1,-1,0,1,1,1,0]
+
+function mooreDir(fx,fy,tx,ty) {
+  const dx=Math.sign(tx-fx),dy=Math.sign(ty-fy)
+  for (let d=0;d<8;d++) if (MDX[d]===dx&&MDY[d]===dy) return d
+  return -1
+}
+
+function mooreTrace(bin, w, h, sx, sy) {
+  if (!bin[sy*w+sx]) return []
+  const pts = [[sx,sy]]
+  let bx=sx-1, by=sy, px=sx, py=sy
+  const MAX = Math.min((w+h)*4*4, 40000)
+  for (let iter=0; iter<MAX; iter++) {
+    const bDir = mooreDir(px,py,bx,by)
+    if (bDir<0) break
+    let qx=-1, qy=-1, newBx=bx, newBy=by
+    for (let i=0; i<8; i++) {
+      const d=(bDir+i)%8, nx=px+MDX[d], ny=py+MDY[d]
+      if (nx<0||ny<0||nx>=w||ny>=h||!bin[ny*w+nx]) {
+        if (nx>=0&&ny>=0&&nx<w&&ny<h) { newBx=nx; newBy=ny }
+        continue
+      }
+      qx=nx; qy=ny; break
+    }
+    if (qx<0) break
+    if (qx===sx&&qy===sy&&iter>2) break
+    pts.push([qx,qy]); bx=newBx; by=newBy; px=qx; py=qy
+  }
+  return pts
+}
+
+function floodFillBg(local, lw, lh) {
+  const reached = new Uint8Array(lw*lh)
+  const stack = [0]; reached[0]=1
+  while (stack.length) {
+    const idx=stack.pop(), lx=idx%lw, ly=Math.floor(idx/lw)
+    for (const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const nx=lx+dx,ny=ly+dy; if (nx<0||ny<0||nx>=lw||ny>=lh) continue
+      const ni=ny*lw+nx; if (!reached[ni]&&!local[ni]) { reached[ni]=1; stack.push(ni) }
+    }
+  }
+  return reached
+}
+
+function findHoles(local, lw, lh, reached) {
+  const visited = new Uint8Array(lw*lh)
+  const holeContours = []
+  for (let ly=0; ly<lh; ly++) for (let lx=0; lx<lw; lx++) {
+    const idx=ly*lw+lx
+    if (local[idx]||reached[idx]||visited[idx]) continue
+    const seed=[lx,ly]; const hStack=[idx]; visited[idx]=1
+    const holePx=[[lx,ly]]
+    while (hStack.length) {
+      const hidx=hStack.pop(), hx=hidx%lw, hy=Math.floor(hidx/lw)
+      for (const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nx=hx+dx,ny=hy+dy; if (nx<0||ny<0||nx>=lw||ny>=lh) continue
+        const ni=ny*lw+nx; if (!local[ni]&&!reached[ni]&&!visited[ni]) { visited[ni]=1; hStack.push(ni); holePx.push([nx,ny]) }
+      }
+    }
+    const invL = new Uint8Array(lw*lh)
+    for (const [hx,hy] of holePx) invL[hy*lw+hx]=1
+    const [sx,sy] = seed
+    const hContour = mooreTrace(invL, lw, lh, sx, sy)
+    if (hContour.length>2) holeContours.push(hContour)
+  }
+  return holeContours
+}
+
+function simplify(pts, eps) {
+  if (pts.length<=2) return pts
+  function dist(p,a,b) {
+    const dx=b[0]-a[0],dy=b[1]-a[1],len2=dx*dx+dy*dy
+    if (!len2) return Math.hypot(p[0]-a[0],p[1]-a[1])
+    const t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/len2))
+    return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)
+  }
+  function rdp(pts) {
+    if (pts.length<=2) return pts
+    let md=0,mi=0
+    for (let i=1;i<pts.length-1;i++) { const d=dist(pts[i],pts[0],pts[pts.length-1]); if (d>md){md=d;mi=i} }
+    if (md>eps) { const l=rdp(pts.slice(0,mi+1)),r=rdp(pts.slice(mi)); return [...l.slice(0,-1),...r] }
+    return [pts[0],pts[pts.length-1]]
+  }
+  return rdp([...pts,pts[0]]).slice(0,-1)
+}
+
+function polyToBezierPath(pts, tension = 0.4) {
+  if (pts.length<2) return ''
+  const n=pts.length
+  let path=`M${pts[0][0].toFixed(2)},${pts[0][1].toFixed(2)}`
+  for (let i=0; i<n; i++) {
+    const p0=pts[(i-1+n)%n],p1=pts[i],p2=pts[(i+1)%n],p3=pts[(i+2)%n]
+    const cp1x=p1[0]+(p2[0]-p0[0])*tension/3, cp1y=p1[1]+(p2[1]-p0[1])*tension/3
+    const cp2x=p2[0]-(p3[0]-p1[0])*tension/3, cp2y=p2[1]-(p3[1]-p1[1])*tension/3
+    path+=` C${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`
+  }
+  return path+' Z'
+}
+
+function glyphToVectorPath(binary, bounds, fw, epsilon) {
+  const {x,y,w,h} = bounds
+  const pad=2, lw=w+2*pad, lh=h+2*pad
+  const local = new Uint8Array(lw*lh)
+  for (let dy=0;dy<h;dy++) for (let dx=0;dx<w;dx++) local[(dy+pad)*lw+(dx+pad)]=binary[(y+dy)*fw+(x+dx)]
+
+  let sx=-1,sy=-1
+  outer: for (let ly=0;ly<lh;ly++) for (let lx=0;lx<lw;lx++) if (local[ly*lw+lx]) { sx=lx;sy=ly;break outer }
+  if (sx<0) return null
+
+  const outerPts = mooreTrace(local, lw, lh, sx, sy)
+  if (outerPts.length<3) return null
+
+  const simpO = simplify(outerPts, epsilon)
+  const normO = simpO.map(([cx,cy])=>[cx-pad, cy-pad])
+  let path = polyToBezierPath(normO)
+
+  const reached = floodFillBg(local, lw, lh)
+  const holes = findHoles(local, lw, lh, reached)
+  for (const hContour of holes) {
+    if (hContour.length<3) continue
+    const simpH = simplify(hContour, epsilon)
+    if (simpH.length<3) continue
+    const normH = simpH.map(([cx,cy])=>[cx-pad, cy-pad])
+    path += ' ' + polyToBezierPath(normH)
+  }
+  return path
+}
+
+function drawRowPreview(canvas, bin, row, fw) {
+  if (!row.length) return
+  const minX=Math.min(...row.map(c=>c.x)),maxX=Math.max(...row.map(c=>c.x+c.w))
+  const minY=Math.min(...row.map(c=>c.y)),maxY=Math.max(...row.map(c=>c.y+c.h))
+  const srcW=Math.max(1,maxX-minX),srcH=Math.max(1,maxY-minY)
+  const scale=Math.min(290/srcW,30/srcH,1)
+  const dw=Math.round(srcW*scale),dh=Math.max(6,Math.round(srcH*scale))
+  canvas.width=290; canvas.height=dh
+  const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,290,dh)
+  const offX=Math.round((290-dw)/2),offY=Math.round((dh-Math.round(srcH*scale))/2)
+  ctx.fillStyle='rgba(255,255,255,0.8)'
+  for (const comp of row) for (let dy2=0;dy2<comp.h;dy2++) for (let dx2=0;dx2<comp.w;dx2++) {
+    if (!bin[(comp.y+dy2)*fw+(comp.x+dx2)]) continue
+    ctx.fillRect(offX+Math.round((comp.x-minX+dx2)*scale),offY+Math.round((comp.y-minY+dy2)*scale),Math.max(1,Math.ceil(scale)),Math.max(1,Math.ceil(scale)))
+  }
+}
+
+function labelChar(type, idx, total) {
+  if (type==='caps')   return total===26?String.fromCharCode(65+idx):'C'+String(idx+1).padStart(2,'0')
+  if (type==='lower')  return total===26?String.fromCharCode(97+idx):'c'+String(idx+1).padStart(2,'0')
+  if (type==='number') return total===10?String(idx):'#'+String(idx+1).padStart(2,'0')
+  return 'S'+String(idx+1).padStart(2,'0')
+}
+
+$$('detect-btn').addEventListener('click', runDetect)
+
+async function runDetect() {
+  if (!bitmap||isWorking) return
+  isWorking=true; $$('detect-btn').disabled=true; $$('detect-btn').textContent='detecting...'
+  setStatus('loading image...','loading'); setProgress(10)
+  const w=bitmap.width,h=bitmap.height; imgW=w;imgH=h;imgArea=w*h
+  try {
+    const canvas=new OffscreenCanvas(w,h); const ctx=canvas.getContext('2d'); ctx.drawImage(bitmap,0,0)
+    const id=ctx.getImageData(0,0,w,h); let gray=toGray(id.data,w*h)
+    setProgress(20); await new Promise(r=>setTimeout(r,0))
+
+    const blurSigma=+$$('blur').value
+    if (blurSigma>0) { setStatus('smoothing...','loading'); gray=gaussianBlur(gray,w,h,blurSigma); await new Promise(r=>setTimeout(r,0)) }
+    setProgress(35)
+
+    if (useOtsu) {
+      computedThreshold=otsu(gray); $$('threshold').value=computedThreshold
+      $$('threshold-v').className='sl-v computed'; $$('threshold-v').textContent=computedThreshold+' auto'
+    }
+    const thresh=useOtsu?computedThreshold:+$$('threshold').value
+    setStatus('thresholding at '+thresh+'...','loading')
+
+    binary=new Uint8Array(w*h)
+    for (let i=0;i<gray.length;i++) binary[i]=(useInvert?gray[i]>thresh:gray[i]<thresh)?1:0
+    setProgress(50); await new Promise(r=>setTimeout(r,0))
+
+    const dilR=+$$('dilate').value
+    const binCC=dilR>0?dilate(binary,w,h,dilR):binary
+    if (dilR>0) await new Promise(r=>setTimeout(r,0))
+
+    setStatus('finding glyphs...','loading')
+    let comps=labelComps(binCC,w,h); const totalComps=comps.length
+    setProgress(65); await new Promise(r=>setTimeout(r,0))
+
+    const minA=+$$('min-size').value*imgArea, maxA=+$$('max-size').value*imgArea
+    comps=comps.filter(c=>c.area>=minA&&c.area<=maxA); const afterFilter=comps.length
+    comps=mergeFragments(comps)
+    const rows=groupRows(comps)
+    setProgress(90); await new Promise(r=>setTimeout(r,0))
+
+    if (!rows.length) {
+      setStatus('no glyphs found — adjust threshold or size filter','err',
+        [{l:'raw',v:totalComps},{l:'after filter',v:afterFilter}])
+      setProgress(0);isWorking=false;$$('detect-btn').disabled=false;$$('detect-btn').textContent='detect glyphs';return
+    }
+
+    const autoTypes=autoClassify(rows)
+    detectedRows=rows.map((row,ri)=>{
+      const pv=new OffscreenCanvas(290,30); drawRowPreview(pv,binary,row,w)
+      return {chars:row,type:autoTypes[ri]||'unknown',previewCanvas:pv}
+    })
+    setProgress(0)
+    setStatus(comps.length+' glyphs · '+rows.length+' rows','ok',[
+      {l:'threshold',v:thresh},{l:'components',v:totalComps},{l:'filtered',v:totalComps-afterFilter},{l:'rows',v:rows.length}
+    ])
+    await buildClassifyUI()
+  } catch(err) {
+    setStatus('error: '+(err.message||err),'err');setProgress(0);isWorking=false
+    $$('detect-btn').disabled=false;$$('detect-btn').textContent='detect glyphs'
+  }
+}
+
+async function buildClassifyUI() {
+  const container=$$('row-items'); container.innerHTML=''
+  for (let ri=0;ri<detectedRows.length;ri++) {
+    const {chars,type,previewCanvas}=detectedRows[ri]
+    const item=document.createElement('div')
+    item.className='row-item';item.dataset.row=String(ri);item.dataset.type=type
+    const cnv=document.createElement('canvas'); cnv.className='row-preview'; cnv.width=290;cnv.height=30
+    const blob=await previewCanvas.convertToBlob()
+    const url=URL.createObjectURL(blob)
+    await new Promise(resolve=>{
+      const img=new Image();img.onload=()=>{cnv.getContext('2d').drawImage(img,0,0,cnv.width,cnv.height);URL.revokeObjectURL(url);resolve()};img.src=url
+    })
+    item.appendChild(cnv)
+    const ctrl=document.createElement('div');ctrl.className='row-ctrls'
+    const cnt=document.createElement('span');cnt.className='row-cnt';cnt.textContent=chars.length+' glyphs';ctrl.appendChild(cnt)
+    const medH=[...chars].sort((a,b)=>a.h-b.h)[Math.floor(chars.length/2)].h
+    const ht=document.createElement('span');ht.className='row-ht';ht.textContent='~'+medH+'px';ctrl.appendChild(ht)
+    const btns=document.createElement('div');btns.className='type-btns'
+    for (const {t,label} of [{t:'caps',label:'Aa'},{t:'lower',label:'aa'},{t:'number',label:'01'},{t:'symbol',label:'!@'},{t:'skip',label:'—'}]) {
+      const b=document.createElement('button')
+      b.className='type-btn'+(type===t?' active':'');b.dataset.t=t;b.textContent=label
+      b.addEventListener('click',()=>{detectedRows[ri].type=t;item.dataset.type=t;btns.querySelectorAll('.type-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active')})
+      btns.appendChild(b)
+    }
+    ctrl.appendChild(btns);item.appendChild(ctrl);container.appendChild(item)
+  }
+  $$('phase1-footer').style.display='none'
+  $$('classify-section').classList.add('show')
+  $$('phase2-footer').classList.add('show')
+  isWorking=false
+}
+
+async function buildSections(onProgress) {
+  const TYPE_ORDER=['caps','lower','number','symbol']
+  const typeGroups={}
+  for (const row of detectedRows) {
+    if (row.type==='skip') continue
+    if (!typeGroups[row.type]) typeGroups[row.type]=[]
+    typeGroups[row.type].push(row)
+  }
+  const epsilon=+$$('epsilon').value
+  const sections=[], allGlyphs=[]
+  let processed=0
+  const totalChars=detectedRows.filter(r=>r.type!=='skip').reduce((n,r)=>n+r.chars.length,0)
+
+  for (const type of TYPE_ORDER) {
+    if (!typeGroups[type]) continue
+    const allChars=typeGroups[type].flatMap(r=>r.chars)
+    const total=allChars.length
+    const charData=[]
+    for (let ci=0;ci<allChars.length;ci++) {
+      onProgress && onProgress(processed, totalChars)
+      const comp=allChars[ci]
+      const vectorPath=glyphToVectorPath(binary,comp,imgW,epsilon)
+      if (vectorPath) {
+        const gd={label:labelChar(type,ci,total),sectionType:type,sectionIndex:ci,bounds:{x:comp.x,y:comp.y,w:comp.w,h:comp.h},vectorPath}
+        charData.push(gd); allGlyphs.push(gd)
+      }
+      processed++
+      if (processed%4===0) await new Promise(r=>setTimeout(r,0))
+    }
+    if (charData.length) sections.push({type,chars:charData})
+  }
+  return {sections, allGlyphs}
+}
+
+$$('generate-btn').addEventListener('click', runGenerate)
+
+async function runGenerate() {
+  if (isWorking) return
+  isWorking=true;$$('generate-btn').disabled=true;$$('generate-btn').textContent='generating...'
+  setStatus('tracing vectors...','loading');setProgress(15)
+
+  const padding=+$$('padding').value
+  const hex=$$('color-inp').value.replace('#','')
+  const inkColor={r:parseInt(hex.slice(0,2),16)/255,g:parseInt(hex.slice(2,4),16)/255,b:parseInt(hex.slice(4,6),16)/255}
+
+  try {
+    const {sections, allGlyphs} = await buildSections((p,t)=>setProgress(15+Math.round((p/t)*72)))
+    lastGlyphs = allGlyphs
+
+    setProgress(90);await new Promise(r=>setTimeout(r,0))
+    parent.postMessage({pluginMessage:{type:'generate',sections,padding,inkColor,filename:fileName}},'*')
+  } catch(err) {
+    setStatus('error: '+(err.message||err),'err');setProgress(0);isWorking=false
+    $$('generate-btn').disabled=false;$$('generate-btn').textContent='glyph sheet'
+  }
+}
+
+$$('font-btn').addEventListener('click', runFontExport)
+
+let opentypeReady = false
+
+async function ensureOpentype() {
+  if (opentypeReady) return
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js'
+    s.onload = () => { opentypeReady = true; resolve() }
+    s.onerror = () => reject(new Error('failed to load opentype.js — check your connection'))
+    document.head.appendChild(s)
+    setTimeout(() => reject(new Error('opentype.js load timeout')), 12000)
+  })
+}
+
+function svgToOTPath(svgData, scale, ascender) {
+  const path = new opentype.Path()
+  const tx = v => +v * scale
+  const ty = v => ascender - +v * scale
+  const toks = svgData.match(/[MCLZmclz]|[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/gi) || []
+  let i = 0, cmd = 'M'
+  while (i < toks.length) {
+    const tok = toks[i]
+    if (/^[MCLZmclz]$/.test(tok)) { cmd = tok.toUpperCase(); i++; continue }
+    if (cmd === 'M') { path.moveTo(tx(toks[i]), ty(toks[i+1])); i += 2 }
+    else if (cmd === 'L') { path.lineTo(tx(toks[i]), ty(toks[i+1])); i += 2 }
+    else if (cmd === 'C') {
+      path.bezierCurveTo(tx(toks[i]),ty(toks[i+1]),tx(toks[i+2]),ty(toks[i+3]),tx(toks[i+4]),ty(toks[i+5]))
+      i += 6
+    } else if (cmd === 'Z') { path.close(); i++ }
+    else i++
+  }
+  return path
+}
+
+async function runFontExport() {
+  if (isWorking) return
+  isWorking = true
+  $$('font-btn').disabled = true; $$('font-btn').textContent = '...'
+
+  try {
+    setStatus('loading font library...', 'loading'); setProgress(5)
+    await ensureOpentype()
+
+    if (!lastGlyphs.length) {
+      setStatus('tracing vectors...', 'loading')
+      const {allGlyphs} = await buildSections((p,t)=>setProgress(5+Math.round((p/t)*40)))
+      lastGlyphs = allGlyphs
+    }
+
+    if (!lastGlyphs.length) {
+      setStatus('no glyphs to export', 'err'); setProgress(0)
+      isWorking=false; $$('font-btn').disabled=false; $$('font-btn').textContent='export .otf'; return
+    }
+
+    setStatus('building font metrics...', 'loading'); setProgress(55)
+    await new Promise(r=>setTimeout(r,0))
+
+    const fontName = ($$('font-name').value||'fontasy').trim() || 'fontasy'
+    const UPM = 1000, ASCENDER = 800, DESCENDER = -200
+    const SIDE_BEARING = 55
+
+    const capsGlyphs = lastGlyphs.filter(g=>g.sectionType==='caps')
+    const refH = capsGlyphs.length > 0
+      ? Math.max(...capsGlyphs.map(g=>g.bounds.h))
+      : Math.max(...lastGlyphs.map(g=>g.bounds.h))
+
+    const scale = refH > 0 ? ASCENDER / refH : 1
+
+    const otGlyphs = [
+      new opentype.Glyph({ name: '.notdef', unicode: 0, advanceWidth: 500, path: new opentype.Path() }),
+      new opentype.Glyph({ name: 'space', unicode: 32, advanceWidth: 280, path: new opentype.Path() }),
+    ]
+
+    let built = 0
+    for (const gd of lastGlyphs) {
+      if (!gd.label || gd.label.length !== 1) continue
+      const cp = gd.label.codePointAt(0)
+      if (!cp || cp < 33) continue
+
+      const otPath = svgToOTPath(gd.vectorPath, scale, ASCENDER)
+      const advW = Math.round(gd.bounds.w * scale) + SIDE_BEARING * 2
+
+      otGlyphs.push(new opentype.Glyph({
+        name: gd.label,
+        unicode: cp,
+        advanceWidth: Math.max(advW, 100),
+        path: otPath,
+      }))
+      built++
+
+      if (built % 8 === 0) {
+        setProgress(55 + Math.round((built / lastGlyphs.length) * 38))
+        await new Promise(r=>setTimeout(r,0))
+      }
+    }
+
+    setStatus('compiling ' + built + ' glyphs...', 'loading'); setProgress(95)
+    await new Promise(r=>setTimeout(r,0))
+
+    const font = new opentype.Font({
+      familyName: fontName,
+      styleName: 'Regular',
+      unitsPerEm: UPM,
+      ascender: ASCENDER,
+      descender: DESCENDER,
+      glyphs: otGlyphs,
+    })
+
+    font.download(fontName.toLowerCase().replace(/\s+/g,'-') + '.otf')
+
+    setStatus(`✓ ${built} glyphs exported as "${fontName}.otf"`, 'ok'); setProgress(0)
+    isWorking=false; $$('font-btn').disabled=false; $$('font-btn').textContent='export .otf'
+
+  } catch(err) {
+    setStatus('font export failed: '+(err.message||err), 'err')
+    setProgress(0); isWorking=false
+    $$('font-btn').disabled=false; $$('font-btn').textContent='export .otf'
+  }
+}
+</script>
+</body>
+</html>

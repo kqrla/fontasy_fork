@@ -1,0 +1,17 @@
+{
+  "name": "Fontasy",
+  "id": "4691facd-7d64-4400-90f1-5d27ed0f41be",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": [
+    "figma"
+  ],
+  "isTool": true,
+  "relaunchButtons": [
+    {
+      "command": "4691facd-7d64-4400-90f1-5d27ed0f41be",
+      "name": "Fontasy"
+    }
+  ],
+  "ui": "ui.html"
+}
