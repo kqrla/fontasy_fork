@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fontasy fork — web</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg: #111114; --bg2: #1a1a1e; --bg3: #222226;
+  --fg: #e8e8ec; --fg2: #a0a0a8; --fg3: #6a6a72;
+  --accent: #7c6cff; --accent2: #9b8fff;
+  --border: #3a3a42; --radius: 8px;
+}
+html, body { background: var(--bg); color: var(--fg); font: 14px/1.6 Inter, -apple-system, sans-serif; min-height: 100vh; }
+a { color: var(--accent2); }
+
+.container { max-width: 720px; margin: 0 auto; padding: 40px 24px; }
+.header { margin-bottom: 32px; }
+.header h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; }
+.header p { color: var(--fg2); margin-top: 4px; }
+
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 11px; font-weight: 600; color: var(--fg3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+
+button { font: inherit; cursor: pointer; border: none; border-radius: var(--radius); }
+input, select { font: inherit; background: var(--bg3); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; }
+label { color: var(--fg2); font-size: 12px; display: block; margin-bottom: 4px; }
+
+.btn-primary { background: var(--accent); color: #fff; padding: 10px 16px; font-weight: 500; width: 100%; font-size: 14px; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-primary:disabled { background: var(--bg3); color: var(--fg3); cursor: default; }
+
+.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 120px; }
+
+.chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 10px; font-size: 12px; border-radius: 14px; background: var(--bg3); color: var(--fg2); border: 1px solid var(--border); cursor: pointer; transition: all 0.1s; }
+.chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px 20px; text-align: center; color: var(--fg3); cursor: pointer; transition: border-color 0.15s; }
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); color: var(--fg2); }
+.drop-zone img { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 6px; margin-top: 12px; }
+
+.toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.toggle input { display: none; }
+.toggle .track { width: 32px; height: 18px; background: var(--bg3); border-radius: 9px; position: relative; transition: background 0.15s; border: 1px solid var(--border); flex-shrink: 0; }
+.toggle input:checked + .track { background: var(--accent); border-color: var(--accent); }
+.toggle .track::after { content:''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; background: var(--fg); border-radius: 50%; transition: transform 0.15s; }
+.toggle input:checked + .track::after { transform: translateX(14px); }
+
+.formats { display: flex; gap: 10px; flex-wrap: wrap; }
+.formats label { display: flex; align-items: center; gap: 5px; color: var(--fg); font-size: 12px; cursor: pointer; }
+.formats input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
+
+.progress-bar { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 12px; }
+.progress-bar .fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.2s; }
+.status { font-size: 12px; color: var(--fg3); text-align: center; margin-top: 8px; min-height: 18px; }
+
+.preview-canvas { width: 100%; border-radius: 6px; margin-top: 12px; background: #fff; display: none; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>fontasy fork</h1>
+    <p>turn images of handwriting, dingbats, or letter beads into fonts — no figma required</p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">source image</div>
+    <div id="drop-zone" class="drop-zone">
+      <span id="drop-placeholder">drop image here · paste · click to upload<br><span style="font-size:11px">png · jpg · webp · avif · svg · gif</span></span>
+      <img id="drop-preview" class="hidden">
+    </div>
+    <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,image/gif,.png,.jpg,.jpeg,.webp,.avif,.svg,.gif" style="display:none">
+  </div>
+
+  <div class="card">
+    <div class="card-title">mode</div>
+    <div class="chip-group" id="mode-chips">
+      <div class="chip active" data-mode="alphabetic">alphabetic</div>
+      <div class="chip" data-mode="dingbat">dingbat</div>
+      <div class="chip" data-mode="bead">bead</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">detection settings</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="row">
+        <div><label>sensitivity</label><input type="range" id="threshold" min="0" max="255" value="128" style="width:100%"></div>
+      </div>
+      <div class="row">
+        <div><label>min glyph size</label><input type="number" id="min-size" value="20" min="5" max="200" style="width:70px"></div>
+        <div><label>merge distance</label><input type="number" id="padding" value="4" min="0" max="30" style="width:70px"></div>
+      </div>
+      <label class="toggle"><input type="checkbox" id="auto-threshold" checked><span class="track"></span><span>auto sensitivity (otsu)</span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">color & texture</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <label class="toggle"><input type="checkbox" id="color-mode"><span class="track"></span><span>color zones (k-means)</span></label>
+      <div id="color-settings" class="hidden">
+        <div class="row">
+          <div><label>clusters</label><input type="number" id="k-clusters" value="3" min="2" max="8" style="width:60px"></div>
+        </div>
+      </div>
+      <div>
+        <label>texture</label>
+        <div class="chip-group" id="texture-chips">
+          <div class="chip active" data-tex="clean">clean</div>
+          <div class="chip" data-tex="rough">rough</div>
+          <div class="chip" data-tex="crayon">crayon</div>
+          <div class="chip" data-tex="pencil">pencil</div>
+          <div class="chip" data-tex="chalk">chalk</div>
+        </div>
+      </div>
+      <div class="row" id="ink-color-row">
+        <div><label>ink color</label></div>
+        <input type="color" id="ink-color" value="#1a1a1e" style="width:36px;height:28px;padding:0;border:none;cursor:pointer;">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">output</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div><label>font name</label><input type="text" id="font-name" value="my font" style="width:100%"></div>
+      <div>
+        <label>export formats</label>
+        <div class="formats">
+          <label><input type="checkbox" id="fmt-otf" checked> otf</label>
+          <label><input type="checkbox" id="fmt-ttf" checked> ttf</label>
+          <label><input type="checkbox" id="fmt-woff"> woff</label>
+          <label><input type="checkbox" id="fmt-woff2"> woff2</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+    <button class="btn-primary" id="btn-detect" disabled>detect glyphs</button>
+    <button class="btn-primary" id="btn-export" disabled>export font</button>
+  </div>
+
+  <div class="progress-bar" id="progress"><div class="fill" id="progress-fill"></div></div>
+  <div class="status" id="status"></div>
+
+  <canvas id="preview-canvas" class="preview-canvas"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+<script>
+const state = { mode: 'alphabetic', textureMode: 'clean', colorMode: false, imageData: null, width: 0, height: 0, sections: null }
+const $ = id => document.getElementById(id)
+const dropZone = $('drop-zone'), fileInput = $('file-input'), btnDetect = $('btn-detect'), btnExport = $('btn-export')
+
+dropZone.addEventListener('click', () => fileInput.click())
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over') })
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'))
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]) })
+fileInput.addEventListener('change', e => { handleFile(e.target.files[0]); e.target.value = '' })
+document.addEventListener('paste', e => { if (e.clipboardData.files.length) handleFile(e.clipboardData.files[0]) })
+
+$('mode-chips').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('mode-chips').querySelectorAll('.chip').forEach(x => x.classList.remove('active')); c.classList.add('active'); state.mode = c.dataset.mode })
+$('texture-chips').addEventListener('click', e => { const c = e.target.closest('.chip'); if (!c) return; $('texture-chips').querySelectorAll('.chip').forEach(x => x.classList.remove('active')); c.classList.add('active'); state.textureMode = c.dataset.tex })
+$('color-mode').addEventListener('change', e => { state.colorMode = e.target.checked; $('color-settings').classList.toggle('hidden', !state.colorMode); $('ink-color-row').classList.toggle('hidden', state.colorMode) })
+
+btnDetect.addEventListener('click', runDetection)
+btnExport.addEventListener('click', runExport)
+
+function handleFile(file) {
+  if (!file) return
+  const url = URL.createObjectURL(file)
+  const img = new Image()
+  img.onload = () => {
+    state.width = img.width; state.height = img.height
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
+    c.getContext('2d').drawImage(img, 0, 0)
+    state.imageData = c.getContext('2d').getImageData(0, 0, img.width, img.height)
+    $('drop-preview').src = url; $('drop-preview').classList.remove('hidden')
+    $('drop-placeholder').classList.add('hidden')
+    btnDetect.disabled = false
+    setStatus('loaded · ' + img.width + '×' + img.height)
+  }
+  img.src = url
+}
+
+function toGray(d){const g=new Uint8Array(d.width*d.height);for(let i=0;i<g.length;i++){const j=i*4;g[i]=Math.round(.299*d.data[j]+.587*d.data[j+1]+.114*d.data[j+2])}return g}
+function otsu(g){const h=new Array(256).fill(0);for(let i=0;i<g.length;i++)h[g[i]]++;const t=g.length;let s=0;for(let i=0;i<256;i++)s+=i*h[i];let sB=0,wB=0,mx=0,th=128;for(let i=0;i<256;i++){wB+=h[i];if(!wB)continue;const wF=t-wB;if(!wF)break;sB+=i*h[i];const mB=sB/wB,mF=(s-sB)/wF,b=wB*wF*(mB-mF)*(mB-mF);if(b>mx){mx=b;th=i}}return th}
+function gaussianBlur(g,w,h,r){if(r<=0)return g;const sz=r*2+1,k=new Float32Array(sz);let s=0;for(let i=0;i<sz;i++){const x=i-r;k[i]=Math.exp(-(x*x)/(2*.36*r*r));s+=k[i]}for(let i=0;i<sz;i++)k[i]/=s;const t=new Uint8Array(w*h),o=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(let i=0;i<sz;i++)v+=g[y*w+Math.min(w-1,Math.max(0,x+i-r))]*k[i];t[y*w+x]=Math.round(v)}for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(let i=0;i<sz;i++)v+=t[Math.min(h-1,Math.max(0,y+i-r))*w+x]*k[i];o[y*w+x]=Math.round(v)}return o}
+function dilate(b,w,h){const o=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(b[y*w+x]){o[y*w+x]=1;continue}let f=false;for(let dy=-1;dy<=1&&!f;dy++)for(let dx=-1;dx<=1&&!f;dx++){const ny=y+dy,nx=x+dx;if(ny>=0&&ny<h&&nx>=0&&nx<w&&b[ny*w+nx])f=true}o[y*w+x]=f?1:0}return o}
+function labelComponents(b,w,h){const L=new Int32Array(w*h);let n=1;const st=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(b[i]&&!L[i]){const l=n++;st.push(i);while(st.length){const j=st.pop();if(L[j])continue;L[j]=l;const cy=(j/w)|0,cx=j%w;if(cx>0&&b[j-1]&&!L[j-1])st.push(j-1);if(cx<w-1&&b[j+1]&&!L[j+1])st.push(j+1);if(cy>0&&b[j-w]&&!L[j-w])st.push(j-w);if(cy<h-1&&b[j+w]&&!L[j+w])st.push(j+w)}}}return{labels:L,count:n-1}}
+function getBounds(L,w,h,c){const B=[];for(let i=0;i<=c;i++)B.push({x1:w,y1:h,x2:0,y2:0,area:0});for(let y=0;y<h;y++)for(let x=0;x<w;x++){const l=L[y*w+x];if(!l)continue;const b=B[l];if(x<b.x1)b.x1=x;if(x>b.x2)b.x2=x;if(y<b.y1)b.y1=y;if(y>b.y2)b.y2=y;b.area++}return B}
+function mergeFragments(B,L,w,c,d){const uf=Array.from({length:c+1},(_,i)=>i);function find(a){while(uf[a]!==a){uf[a]=uf[uf[a]];a=uf[a]}return a}function unite(a,b){a=find(a);b=find(b);if(a!==b)uf[b]=a}for(let i=1;i<=c;i++){if(!B[i].area)continue;for(let j=i+1;j<=c;j++){if(!B[j].area)continue;const dx=Math.max(0,Math.max(B[i].x1,B[j].x1)-Math.min(B[i].x2,B[j].x2)),dy=Math.max(0,Math.max(B[i].y1,B[j].y1)-Math.min(B[i].y2,B[j].y2));if(dx<=d&&dy<=d)unite(i,j)}}const M=new Map();for(let i=1;i<=c;i++){if(!B[i].area)continue;const r=find(i);if(!M.has(r))M.set(r,{x1:w,y1:h,x2:0,y2:0,area:0,components:[]});const m=M.get(r),b=B[i];m.x1=Math.min(m.x1,b.x1);m.y1=Math.min(m.y1,b.y1);m.x2=Math.max(m.x2,b.x2);m.y2=Math.max(m.y2,b.y2);m.area+=b.area;m.components.push(i)}return Array.from(M.values())}
+function groupRows(gl,tol){if(!gl.length)return[];gl.sort((a,b)=>a.y1-b.y1);const rows=[];let row=[gl[0]];for(let i=1;i<gl.length;i++){const g=gl[i],rm=row.reduce((s,r)=>s+(r.y1+r.y2)/2,0)/row.length,gm=(g.y1+g.y2)/2;if(Math.abs(gm-rm)<tol)row.push(g);else{rows.push(row.sort((a,b)=>a.x1-b.x1));row=[g]}}rows.push(row.sort((a,b)=>a.x1-b.x1));return rows}
+function autoClassify(rows){const secs=[];const U='ABCDEFGHIJKLMNOPQRSTUVWXYZ',Lo='abcdefghijklmnopqrstuvwxyz',D='0123456789',P='!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';const ex=[P.slice(0,9),P.slice(9),D,U.slice(0,9),U.slice(9,18),U.slice(18),Lo.slice(0,9),Lo.slice(9,18),Lo.slice(18)];for(let r=0;r<rows.length&&r<ex.length;r++){const ch=[];for(let c=0;c<rows[r].length&&c<ex[r].length;c++)ch.push({label:ex[r][c],bounds:{x:rows[r][c].x1,y:rows[r][c].y1,w:rows[r][c].x2-rows[r][c].x1,h:rows[r][c].y2-rows[r][c].y1},components:rows[r][c].components||[]});secs.push({type:r<2?'punctuation':r<3?'digits':r<6?'uppercase':'lowercase',chars:ch})}return secs}
+
+function mooreTrace(b,w,h,sx,sy){const dirs=[[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];const ct=[];let x=sx,y=sy,dir=6,steps=0;do{ct.push([x,y]);let found=false;for(let i=0;i<8;i++){const d=(dir+5+i)%8,nx=x+dirs[d][0],ny=y+dirs[d][1];if(nx>=0&&nx<w&&ny>=0&&ny<h&&b[ny*w+nx]){x=nx;y=ny;dir=d;found=true;break}}if(!found)break;if(++steps>w*h)break}while(x!==sx||y!==sy);return ct}
+function simplify(pts,eps){if(pts.length<3)return pts;let mx=0,mi=0;const[sx,sy]=pts[0],[ex,ey]=pts[pts.length-1],dx=ex-sx,dy=ey-sy,ls=dx*dx+dy*dy;for(let i=1;i<pts.length-1;i++){let d;if(ls===0)d=Math.hypot(pts[i][0]-sx,pts[i][1]-sy);else{const t=Math.max(0,Math.min(1,((pts[i][0]-sx)*dx+(pts[i][1]-sy)*dy)/ls));d=Math.hypot(pts[i][0]-(sx+t*dx),pts[i][1]-(sy+t*dy))}if(d>mx){mx=d;mi=i}}if(mx>eps){const l=simplify(pts.slice(0,mi+1),eps),r=simplify(pts.slice(mi),eps);return l.slice(0,-1).concat(r)}return[pts[0],pts[pts.length-1]]}
+function floodFillBg(b,w,h){const v=new Uint8Array(w*h),st=[];for(let x=0;x<w;x++){if(!b[x])st.push(x);if(!b[(h-1)*w+x])st.push((h-1)*w+x)}for(let y=0;y<h;y++){if(!b[y*w])st.push(y*w);if(!b[y*w+w-1])st.push(y*w+w-1)}while(st.length){const i=st.pop();if(v[i])continue;v[i]=1;const cy=(i/w)|0,cx=i%w;if(cx>0&&!b[i-1]&&!v[i-1])st.push(i-1);if(cx<w-1&&!b[i+1]&&!v[i+1])st.push(i+1);if(cy>0&&!b[i-w]&&!v[i-w])st.push(i-w);if(cy<h-1&&!b[i+w]&&!v[i+w])st.push(i+w)}return v}
+function findHoles(b,w,h,bg){const holes=[],v=new Uint8Array(w*h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!b[i]&&!bg[i]&&!v[i]){const hole=[],st=[i];while(st.length){const j=st.pop();if(v[j])continue;v[j]=1;hole.push(j);const cy=(j/w)|0,cx=j%w;if(cx>0&&!b[j-1]&&!v[j-1])st.push(j-1);if(cx<w-1&&!b[j+1]&&!v[j+1])st.push(j+1);if(cy>0&&!b[j-w]&&!v[j-w])st.push(j-w);if(cy<h-1&&!b[j+w]&&!v[j+w])st.push(j+w)}if(hole.length>4)holes.push(hole)}}return holes}
+function polyToBezier(pts){if(pts.length<2)return'';let d=`M ${pts[0][0]} ${pts[0][1]} `;if(pts.length===2)return d+`L ${pts[1][0]} ${pts[1][1]} Z`;for(let i=0;i<pts.length;i++){const p0=pts[(i-1+pts.length)%pts.length],p1=pts[i],p2=pts[(i+1)%pts.length],p3=pts[(i+2)%pts.length],t=.3;d+=`C ${p1[0]+(p2[0]-p0[0])*t/3} ${p1[1]+(p2[1]-p0[1])*t/3} ${p2[0]-(p3[0]-p1[0])*t/3} ${p2[1]-(p3[1]-p1[1])*t/3} ${p2[0]} ${p2[1]} `}return d+'Z'}
+function glyphToVectorPath(bin,w,h,bounds,labels,compIds){const{x1,y1,x2,y2}=bounds;const gw=x2-x1+1,gh=y2-y1+1;if(gw<2||gh<2)return'';const local=new Uint8Array(gw*gh);for(let y=y1;y<=y2;y++)for(let x=x1;x<=x2;x++){const i=y*w+x;if(bin[i]&&(!compIds||!compIds.length||compIds.includes(labels[i])))local[(y-y1)*gw+(x-x1)]=1}let sx=-1,sy=-1;for(let y=0;y<gh&&sx<0;y++)for(let x=0;x<gw&&sx<0;x++)if(local[y*gw+x]){sx=x;sy=y}if(sx<0)return'';const oc=mooreTrace(local,gw,gh,sx,sy);if(oc.length<3)return'';let path=polyToBezier(simplify(oc,1.2));const bg=floodFillBg(local,gw,gh),holes=findHoles(local,gw,gh,bg);for(const hole of holes){const hp=new Uint8Array(gw*gh);for(const i of hole)hp[i]=1;let hx=-1,hy=-1;for(const i of hole){hy=(i/gw)|0;hx=i%gw;break}if(hx>=0){const hc=mooreTrace(hp,gw,gh,hx,hy),hs=simplify(hc,1.0);if(hs.length>2)path+=' '+polyToBezier(hs.reverse())}}return path}
+function kMeansColors(imgData,bin,w,h,bounds,labels,compIds,k){const{x1,y1,x2,y2}=bounds;const px=[];for(let y=y1;y<=y2;y++)for(let x=x1;x<=x2;x++){const i=y*w+x;if(bin[i]&&(!compIds||!compIds.length||compIds.includes(labels[i]))){const p=i*4;px.push([imgData.data[p],imgData.data[p+1],imgData.data[p+2],x-x1,y-y1])}}if(px.length<k*3)return null;let cen=[];const step=Math.floor(px.length/k);for(let i=0;i<k;i++)cen.push(px[Math.min(i*step,px.length-1)].slice(0,3));const asgn=new Array(px.length);for(let iter=0;iter<12;iter++){for(let i=0;i<px.length;i++){let mn=Infinity,b=0;for(let c=0;c<k;c++){const dr=px[i][0]-cen[c][0],dg=px[i][1]-cen[c][1],db=px[i][2]-cen[c][2],d=dr*dr+dg*dg+db*db;if(d<mn){mn=d;b=c}}asgn[i]=b}const sums=Array.from({length:k},()=>[0,0,0,0]);for(let i=0;i<px.length;i++){const c=asgn[i];sums[c][0]+=px[i][0];sums[c][1]+=px[i][1];sums[c][2]+=px[i][2];sums[c][3]++}for(let c=0;c<k;c++)if(sums[c][3]>0)cen[c]=[sums[c][0]/sums[c][3],sums[c][1]/sums[c][3],sums[c][2]/sums[c][3]]}const gw=x2-x1+1,gh=y2-y1+1,zones=[];for(let c=0;c<k;c++){const mask=new Uint8Array(gw*gh);let cnt=0;for(let i=0;i<px.length;i++)if(asgn[i]===c){mask[px[i][4]*gw+px[i][3]]=1;cnt++}if(cnt<3)continue;let sx=-1,sy=-1;for(let y=0;y<gh&&sx<0;y++)for(let x=0;x<gw&&sx<0;x++)if(mask[y*gw+x]){sx=x;sy=y}if(sx<0)continue;const ct=mooreTrace(mask,gw,gh,sx,sy);if(ct.length<3)continue;const path=polyToBezier(simplify(ct,1.2));if(path)zones.push({path,color:{r:cen[c][0]/255,g:cen[c][1]/255,b:cen[c][2]/255},opacity:1})}return zones.length?zones:null}
+
+function runDetection(){
+  if(!state.imageData)return;setStatus('detecting...');setProgress(10)
+  setTimeout(()=>{
+    const{width:w,height:h}=state,minSz=+$('min-size').value,mergeDist=+$('padding').value,useAuto=$('auto-threshold').checked
+    const isBead=state.mode==='bead'
+    let gray=toGray(state.imageData);gray=gaussianBlur(gray,w,h,1);setProgress(25)
+    const thresh=useAuto?otsu(gray):+$('threshold').value
+    const bin=new Uint8Array(w*h);for(let i=0;i<gray.length;i++)bin[i]=gray[i]<thresh?1:0;setProgress(40)
+    const dil=dilate(bin,w,h),{labels,count}=labelComponents(dil,w,h),allB=getBounds(labels,w,h,count);setProgress(55)
+    const glyphs=mergeFragments(allB,labels,w,count,mergeDist*2).filter(g=>g.area>=minSz);setProgress(70)
+    const avgH=glyphs.reduce((s,g)=>s+(g.y2-g.y1),0)/(glyphs.length||1)
+    const rows=groupRows(glyphs,avgH*.5);setProgress(80)
+    const k=+$('k-clusters').value
+    let sections
+    if(state.mode==='dingbat'||isBead){
+      const chars=[];let idx=0;const UPPER='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      for(const row of rows)for(const g of row){chars.push({label:isBead&&idx<UPPER.length?UPPER[idx]:'glyph_'+idx,bounds:{x:g.x1,y:g.y1,w:g.x2-g.x1,h:g.y2-g.y1},components:g.components});idx++}
+      sections=[{type:isBead?'bead':'dingbat',chars}]
+    } else sections=autoClassify(rows)
+    const origBin=new Uint8Array(w*h);for(let i=0;i<gray.length;i++)origBin[i]=gray[i]<thresh?1:0
+    let traced=0
+    for(const sec of sections)for(const ch of sec.chars){
+      const b={x1:ch.bounds.x,y1:ch.bounds.y,x2:ch.bounds.x+ch.bounds.w,y2:ch.bounds.y+ch.bounds.h}
+      ch.vectorPath=glyphToVectorPath(origBin,w,h,b,labels,ch.components)
+      if(state.colorMode)ch.colorZones=kMeansColors(state.imageData,origBin,w,h,b,labels,ch.components,k)
+      if(ch.vectorPath)traced++
+    }
+    state.sections=sections;setStatus(`${traced} glyphs traced · ${rows.length} rows`);setProgress(100)
+    btnExport.disabled=traced===0
+    drawPreview(sections,w,h)
+  },10)
+}
+
+function drawPreview(sections,w,h){
+  const canvas=$('preview-canvas'),ctx=canvas.getContext('2d')
+  const scale=Math.min(680/w,400/h,1)
+  canvas.width=Math.round(w*scale);canvas.height=Math.round(h*scale)
+  canvas.style.display='block'
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height)
+  ctx.strokeStyle='#7c6cff';ctx.lineWidth=1
+  for(const sec of sections)for(const ch of sec.chars){
+    const b=ch.bounds
+    ctx.strokeRect(Math.round(b.x*scale),Math.round(b.y*scale),Math.round(b.w*scale),Math.round(b.h*scale))
+    ctx.fillStyle='#7c6cff';ctx.font='10px sans-serif'
+    ctx.fillText(ch.label,Math.round(b.x*scale),Math.round(b.y*scale)-2)
+    ctx.fillStyle='#fff'
+  }
+}
+
+function runExport(){
+  if(!state.sections||typeof opentype==='undefined'){setStatus('opentype.js not loaded');return}
+  const fmts=[];if($('fmt-otf').checked)fmts.push('otf');if($('fmt-ttf').checked)fmts.push('ttf');if($('fmt-woff').checked)fmts.push('woff');if($('fmt-woff2').checked)fmts.push('woff2')
+  if(!fmts.length){setStatus('select at least one format');return}
+  setStatus('building font...');setProgress(20)
+  const fontName=($('font-name').value||'FontasyFork').replace(/\s+/g,''),upm=1000,asc=800,desc=-200
+  const notdef=new opentype.Glyph({name:'.notdef',unicode:0,advanceWidth:500,path:new opentype.Path()})
+  const space=new opentype.Glyph({name:'space',unicode:32,advanceWidth:250,path:new opentype.Path()})
+  const glyphs=[notdef,space];let pua=0xE000
+  for(const sec of state.sections)for(const ch of sec.chars){if(!ch.vectorPath)continue;let uni;if(state.mode==='dingbat')uni=pua++;else{if(ch.label.length!==1)continue;uni=ch.label.charCodeAt(0)}const p=new opentype.Path();parseSvgPath(p,ch.vectorPath,ch.bounds,upm,asc);glyphs.push(new opentype.Glyph({name:ch.label,unicode:uni,advanceWidth:600,path:p}))}
+  setProgress(60)
+  const font=new opentype.Font({familyName:fontName,styleName:'Regular',unitsPerEm:upm,ascender:asc,descender:desc,glyphs})
+  for(const fmt of fmts){const buf=font.toArrayBuffer();if(fmt==='otf'||fmt==='ttf')dl(new Blob([buf]),`${fontName}.${fmt}`);else if(fmt==='woff'){const w=wrapWoff(buf);dl(new Blob([w||buf]),`${fontName}.${w?'woff':'otf'}`)}else if(fmt==='woff2')dl(new Blob([buf]),`${fontName}.otf`)}
+  setStatus(`exported ${glyphs.length} glyphs · ${fmts.join(', ')}`);setProgress(100)
+}
+
+function dl(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(u)},100)}
+
+function wrapWoff(buf){try{const otf=new Uint8Array(buf),numTables=(otf[4]<<8)|otf[5],hdrSz=44,teSz=20,dirSz=hdrSz+numTables*teSz;let totalSz=dirSz;const entries=[];for(let i=0;i<numTables;i++){const off=12+i*16,tag=(otf[off]<<24)|(otf[off+1]<<16)|(otf[off+2]<<8)|otf[off+3],ck=(otf[off+4]<<24)|(otf[off+5]<<16)|(otf[off+6]<<8)|otf[off+7],o=(otf[off+8]<<24)|(otf[off+9]<<16)|(otf[off+10]<<8)|otf[off+11],l=(otf[off+12]<<24)|(otf[off+13]<<16)|(otf[off+14]<<8)|otf[off+15],pad=(4-(l%4))%4;entries.push({tag,ck,o,l,wo:totalSz});totalSz+=l+pad}const w=new Uint8Array(totalSz),v=new DataView(w.buffer);v.setUint32(0,0x774F4646);v.setUint32(4,(otf[0]<<24)|(otf[1]<<16)|(otf[2]<<8)|otf[3]);v.setUint32(8,totalSz);v.setUint16(12,numTables);v.setUint16(14,0);v.setUint32(16,otf.length);v.setUint16(20,1);v.setUint16(22,0);v.setUint32(24,0);v.setUint32(28,0);v.setUint32(32,0);v.setUint32(36,0);v.setUint32(40,0);for(let i=0;i<entries.length;i++){const e=entries[i],d=hdrSz+i*teSz;v.setUint32(d,e.tag);v.setUint32(d+4,e.wo);v.setUint32(d+8,e.l);v.setUint32(d+12,e.l);v.setUint32(d+16,e.ck);w.set(otf.slice(e.o,e.o+e.l),e.wo)}return w.buffer}catch(e){return null}}
+
+function parseSvgPath(op,svg,bounds,upm,asc){const bw=Math.max(bounds.w,1),bh=Math.max(bounds.h,1),sc=Math.min(600/bw,upm/bh)*.75,ox=(600-bw*sc)/2,oy=asc;const tk=svg.match(/[MmLlCcZz]|[-+]?\d*\.?\d+/g)||[];let i=0;function tx(x){return Math.round((+x*sc)+ox)}function ty(y){return Math.round(oy-(+y*sc))}while(i<tk.length){const c=tk[i++];if(c==='M'&&i+1<tk.length)op.moveTo(tx(tk[i++]),ty(tk[i++]));else if(c==='L'&&i+1<tk.length)op.lineTo(tx(tk[i++]),ty(tk[i++]));else if(c==='C'&&i+5<tk.length){const x1=tx(tk[i++]),y1=ty(tk[i++]),x2=tx(tk[i++]),y2=ty(tk[i++]),x3=tx(tk[i++]),y3=ty(tk[i++]);op.curveTo(x1,y1,x2,y2,x3,y3)}else if(c==='Z'||c==='z')op.closePath();else i++}}
+
+function setStatus(t){$('status').textContent=t}
+function setProgress(p){$('progress-fill').style.width=p+'%'}
+</script>
+</body>
+</html>

@@ -1,17 +1,12 @@
 {
-  "name": "Fontasy",
-  "id": "4691facd-7d64-4400-90f1-5d27ed0f41be",
+  "name": "Fontasy fork",
+  "id": "fedc6abd-75e6-477c-982e-fb0d81e97e14",
   "api": "1.0.0",
   "main": "code.js",
-  "editorType": [
-    "figma"
-  ],
+  "editorType": ["figma"],
   "isTool": true,
   "relaunchButtons": [
-    {
-      "command": "4691facd-7d64-4400-90f1-5d27ed0f41be",
-      "name": "Fontasy"
-    }
+    { "command": "fedc6abd-75e6-477c-982e-fb0d81e97e14", "name": "Fontasy fork" }
   ],
   "ui": "ui.html"
 }
